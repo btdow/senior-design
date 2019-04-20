@@ -28,23 +28,22 @@ def cp_cuda(p1, p2, ring):
            ring   : just passing through to parser
     """
     mod_pair = modified_pair((p1, p2))
-
+    mod = ring.domain.mod
     nvars = len(ring.symbols)  # array stride
-    lt_buf = np.zeros(nvars + 1, dtype=np.int32)
-    lt_buf[-1] = 1
-    fdest = np.zeros(2 * nvars + 1, dtype=np.int32)
+    lt_buf = np.zeros(nvars, dtype=np.uint32)
+    fdest = np.zeros(2 * nvars + 1, dtype=np.uint32)
     gdest = np.zeros_like(fdest)
 
-    f = get_cuda_cp_array(mod_pair[0], nvars)
-    g = get_cuda_cp_array(mod_pair[1], nvars)
+    f = get_cuda_cp_array(mod_pair[0], nvars, mod)
+    g = get_cuda_cp_array(mod_pair[1], nvars, mod)
 
-    kernel_data = [nvars, lt_buf, f, g, fdest, gdest]
+    kernel_data = [nvars, mod, lt_buf, f, g, fdest, gdest]
     cuda_cp_arys = numba_cp_kernel_launch(kernel_data)
 
     # Modular Inverse function from sympy.
-    fdest[-1] = mod_inverse(f[-1], ring.domain.mod)
-    gdest[-1] = mod_inverse(g[-1], ring.domain.mod)
-    
+    fdest[-1] = mod_inverse(f[-1], mod)
+    gdest[-1] = mod_inverse(g[-1], mod)
+
     gpu_cp = parse_cuda_cp_to_sympy(cuda_cp_arys, (p1, p2), ring)
 
     return gpu_cp
@@ -78,24 +77,24 @@ def modified_pair(pair):
     return tuple(modified_pair)
 
 
-def get_cuda_cp_array(mod_pair_part, nvars):
+def get_cuda_cp_array(mod_pair_part, nvars, mod):
     """
     Fills a np.array for cuda cp with data
     appropriate for CP calculation
     Modifies in place.
     """
-    cuda_cp_array = np.zeros(2 * nvars + 1, dtype=np.int32)
+    cuda_cp_array = np.zeros(2 * nvars + 1, dtype=np.uint32)
 
     # Signature Multiplier
     for i, s in enumerate(mod_pair_part[0]):
-        cuda_cp_array[i] = s
+        cuda_cp_array[i] = s % mod
 
     # Leading Monomial
     for i, e in enumerate(mod_pair_part[1][0]):
-        cuda_cp_array[i + nvars] = e
+        cuda_cp_array[i + nvars] = e % mod
 
     # Leading Coefficient
-    cuda_cp_array[-1] = mod_pair_part[1][1]
+    cuda_cp_array[-1] = mod_pair_part[1][1] % mod
 
     return cuda_cp_array
 
@@ -106,23 +105,24 @@ def numba_cp_kernel_launch(kernel_data):
     their documentation
     """
     nvars = kernel_data[0]
-    lt_buf = kernel_data[1]
-    f = kernel_data[2]
-    g = kernel_data[3]
-    fdest = kernel_data[4]
-    gdest = kernel_data[5]
+    mod = kernel_data[1]
+    lt_buf = kernel_data[2]
+    f = kernel_data[3]
+    g = kernel_data[4]
+    fdest = kernel_data[5]
+    gdest = kernel_data[6]
 
     # Launch kernel
     tpb = 32
     bpg = (fdest.size + (tpb - 1)) // tpb
 
-    numba_critical_pairs[tpb, bpg](nvars, lt_buf, f, g, fdest, gdest)
+    numba_critical_pairs[tpb, bpg](nvars, mod, lt_buf, f, g, fdest, gdest)
 
     return [fdest, gdest]
 
 
 @cuda.jit
-def numba_critical_pairs(nvars, lt_buf, f, g, fdest, gdest):
+def numba_critical_pairs(nvars, mod, lt_buf, f, g, fdest, gdest):
     """
     Numba Cuda.Jit kernel for critical pair computation.
 
@@ -167,18 +167,18 @@ def numba_critical_pairs(nvars, lt_buf, f, g, fdest, gdest):
     """
     i = cuda.grid(1)
     # lt
-    if i < lt_buf.size - 1:
+    if i < lt_buf.size:
         lt_buf[i] = max(f[nvars + i], g[nvars + i])
 
     cuda.syncthreads()
     # um vm
-    if i < lt_buf.size - 1:
+    if i < lt_buf.size:
         fdest[nvars + i] = lt_buf[i] - f[nvars + i]
         gdest[nvars + i] = lt_buf[i] - g[nvars + i]
 
     cuda.syncthreads()
     # sig fr gr
-    if i < lt_buf.size - 1:
+    if i < lt_buf.size:
         fdest[i] = f[i] + fdest[nvars + i]
         gdest[i] = g[i] + gdest[nvars + i]
 
@@ -219,12 +219,10 @@ def parse_cuda_cp_to_sympy(cuda_cp, pair, ring):
 
     # Build critical pair list
     gpu_sympy_cp.append([cuda_cp[0][:nvars], pair[0][0][1]])  # sig(fr)
-    gpu_sympy_cp.append([cuda_cp[0][nvars:-1],
-                         ring.from_expr(str(cuda_cp[0][-1])).coeffs()[0]])  # um coeff
+    gpu_sympy_cp.append([cuda_cp[0][nvars:-1], cuda_cp[0][-1]])  # um coeff
     gpu_sympy_cp.append(pair[0])  # f
     gpu_sympy_cp.append([cuda_cp[1][:nvars], pair[1][0][1]])  # sig(gr)
-    gpu_sympy_cp.append([cuda_cp[1][nvars:-1],
-                         ring.from_expr(str(cuda_cp[1][-1])).coeffs()[0]]) # vm coeff
+    gpu_sympy_cp.append([cuda_cp[1][nvars:-1], cuda_cp[1][-1]]) # vm coeff
     gpu_sympy_cp.append(pair[1])  # g
 
     # Retuple
@@ -277,5 +275,3 @@ if __name__ == "__main__":
         print('-------------------')
 
     assert(CP == GPU_CP)
-
-    

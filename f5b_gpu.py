@@ -11,21 +11,26 @@ from cuda_spoly import cuda_s_poly, cuda_s_poly2
 #
 ##########################################################
 
-def _f5b_gpu(F, r, useGPUCP, useGPUSPoly):
+def _f5b_gpu(F, r, useGPUCP, useGPUSPoly, spoly2=False):
 
     # select applicable function to use
 
     sp_needs_ring = False  # to decide whether or not to pass ring to s_poly (used in GPU one)
+    sp_needs_B = False
 
     if useGPUCP:
         c_p = cp_cuda
     else:
         c_p = critical_pair
     if useGPUSPoly:
-        s_p = cuda_s_poly2
+        s_p = cuda_s_poly
         sp_needs_ring = True
     else:
         s_p = s_poly
+
+    if spoly2:
+        s_p = cuda_s_poly2
+        sp_needs_B = True
 
     domain, orig = r.domain, None
 
@@ -78,9 +83,12 @@ def _f5b_gpu(F, r, useGPUCP, useGPUSPoly):
             continue
 
         if sp_needs_ring:
-            s = s_p(cp, r)
+            s = s_p(cp, B, r)
         else:
             s = s_p(cp)
+
+        if sp_needs_B:
+            s = s_p(cp, B, r)
 
         p = f5_reduce(s, B)
 

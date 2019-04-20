@@ -11,7 +11,7 @@ from sympy.polys.orderings import monomial_key
 
 import numpy as np
 from numba import cuda
-
+from cuda_cp import cp_cuda
 
 def cuda_s_poly(cp, B, r):
     """
@@ -37,7 +37,7 @@ def cuda_s_poly(cp, B, r):
            ring: for ordering, modulus
     """
     # Left and right of critical pair
-    Ld = [(cp[0], cp[1], cp[2]), (cp[0], cp[4], cp[5])]
+    Ld = [(cp[0], cp[1], cp[2]), (cp[3], cp[4], cp[5])]
 
     # Get Length/monomials of destination array
     spair_info = symbolic_preprocessing(Ld, B, r)
@@ -56,7 +56,7 @@ def cuda_s_poly2(cp, r):
     a cuda stream in CUDA-C or PyCUDA
     """
     nvars = len(r.symbols)
-
+    mod = r.domain.mod
     # Multiply step
     f = cp[2]
     g = cp[5]
@@ -66,18 +66,21 @@ def cuda_s_poly2(cp, r):
     fnum = Num(f)
     gnum = Num(g)
 
-    um = list(cp[1][0])
-    vm = list(cp[4][0])  # separate
+    um = cp[1][0]
+    vm = cp[4][0]
     uc = cp[1][1]
     vc = cp[4][1]
-    um = np.array(um, dtype=np.int32)
-    vm = np.array(vm, dtype=np.int32)
+    um = np.array(um, dtype=np.uint32)
+    vm = np.array(vm, dtype=np.uint32)
 
     uv_coeffs = [uc, vc]
-    uv_coeffs = np.array(uv_coeffs, dtype=np.int32)
+    uv_coeffs = np.array(uv_coeffs, dtype=np.int64)
 
-    fsm = np.array([Sign(f)[0]] + Polyn(f).monoms(), dtype=np.int32)
-    gsm = np.array([Sign(g)[0]] + Polyn(g).monoms(), dtype=np.int32)
+    fsm = [Sign(f)[0]] + Polyn(f).monoms()
+    fsm = np.array(fsm, dtype=np.uint32)
+
+    gsm = [Sign(g)[0]] + Polyn(g).monoms()
+    gsm = np.array(gsm, dtype=np.uint32)
 
     fc = [f for f in Polyn(f).coeffs()]
     fc = np.array(fc, dtype=np.int32)
@@ -117,7 +120,7 @@ def cuda_s_poly2(cp, r):
     all_monoms = set(fnew_monoms).union(set(gnew_monoms))
     all_monoms = sorted(all_monoms, key=monomial_key(order=r.order), reverse=True)
 
-    spair_matrix = np.zeros((2, len(all_monoms)), dtype=np.int32)
+    spair_matrix = np.zeros((2, len(all_monoms)), dtype=np.uint32)
 
     for fm, fc in zip(fnew_monoms, fc_dest):
         spair_matrix[0, all_monoms.index(fm)] = fc
@@ -154,10 +157,10 @@ def spoly_numba_io(spair_info, r):
     # fill at coordinates with nonzero entries
     for coords in spair_info["nze"]:
         spair_matrix[coords[0][0], coords[0][1]] = coords[1]
-
+    
     threadsperblock = 32
     blockspergrid = (dest.size + (threadsperblock - 1)) // threadsperblock
-        
+
     spoly_sub_numba_kernel[threadsperblock, blockspergrid](dest, spair_matrix)
 
     # parse
@@ -198,8 +201,12 @@ def spoly_mul_numba_kernel(fsm_dest, gsm_dest, fc_dest, gc_dest,
     if j < fsm_dest.shape[0] and i < fsm_dest.shape[1]:
         fsm_dest[j, i] = um[i] + fsm[j, i]
 
+    cuda.syncthreads()
+
     if j < gsm_dest.shape[0] and i < gsm_dest.shape[1]:
         gsm_dest[j, i] = vm[i] + gsm[j, i]
+
+    cuda.syncthreads()
 
     if i < fc_dest.size:
         fc_dest[i] = uv_coeffs[0] * fc[i]
@@ -220,7 +227,7 @@ def symbolic_preprocessing(Ld, B, r):
     """
     domain = r.domain
 
-    Fi = set([lbp_mul_term(sc[2], sc[1]) for sc in Ld])
+    Fi = [lbp_mul_term(sc[2], sc[1]) for sc in Ld]
     Done = set([Polyn(f).LM for f in Fi])
     M = [Polyn(f).monoms() for f in Fi]
     M = set([i for i in chain(*M)]).difference(Done)
@@ -238,9 +245,6 @@ def symbolic_preprocessing(Ld, B, r):
         else:
             break
 
-    # Fi sorted by sig_key, normalized, labeled, Done by monomial order
-    Fi = sorted(Fi, key=lambda f: sig_key(f[0], r.order), reverse=True)
-    Fi = [lbp(Sign(f), Polyn(f).monic(), Num(f)) for f in Fi]
     Done = sorted(Done, key=monomial_key(order=r.order), reverse=True)
 
     # pseudo COO sparse format
@@ -269,11 +273,21 @@ def parse_gpu_spoly(dest, spair_info, r):
 
     Output: sympy lbp 3 tuple (sig, poly, num)
     """
-    spoly_sig = spair_info["spair"][0][0]
-    spoly_num = spair_info["spair"][0][2]
+    spoly_sig = None
+    spoly_num = None
+
+    f = spair_info["spair"][0]
+    g = spair_info["spair"][1]
+    
+    if lbp_cmp(f, g) == -1:
+        spoly_sig = Sign(g)
+        spoly_num = Num(g)
+    elif lbp_cmp(f, g) == 1: 
+        spoly_sig = Sign(f)
+        spoly_num = Num(f)
 
     if spair_info["monomials"] == [r.zero_monom]:
-        return spair_info["spair"][0]
+        return (spoly_sig, Polyn(f), spoly_num)
 
     pexp = []
     for i, c in enumerate(dest):
@@ -299,7 +313,7 @@ def parse_gpu_spoly_mul(spair_matrix, all_monoms, fnew_sig, gnew_sig,
     fsig = (tuple(fnew_sig), fsig_idx)
     gsig = (tuple(gnew_sig), gsig_idx)
 
-    if all_monoms == [r.zero_monom] or sum(sum(spair_matrix)) == 0:
+    if all_monoms == [r.zero_monom] or sum(sum(spair_matrix)) == 0 or all_monoms == []:
         return None
 
     fpexp = []
@@ -325,7 +339,6 @@ def parse_gpu_spoly_mul(spair_matrix, all_monoms, fnew_sig, gnew_sig,
     lbg = (gsig, gp, gnum)
 
     spair = [lbf, lbg]
-    spair = sorted(spair, key=lambda f: sig_key(f[0], r.order), reverse=True)
 
     nze = []
     for i, f in enumerate(spair):
@@ -363,10 +376,10 @@ if __name__ == "__main__":
 
     print("Katsura Affine 4")
     r, x1, x2, x3, x4 = ring(symbols="x1, x2, x3, x4", domain=GF(65521), order='grevlex')
-    f1 = x1+2*x2+2*x3+2*x4-1
-    f2 = x1**2+2*x2**2+2*x3**2+2*x4**2-x1
-    f3 = 2*x1*x2+2*x2*x3+2*x3*x4-x2
-    f4 = x2**2+2*x1*x3+2*x2*x4-x3
+    f1 = x1 + 2*x2 + 2*x3 + 2*x4 - 1
+    f2 = x1**2 + 2*x2**2 + 2*x3**2 + 2*x4**2 - x1
+    f3 = 2*x1*x2 + 2*x2*x3 + 2*x3*x4 - x2
+    f4 = x2**2 + 2*x1*x3 + 2*x2*x4 - x3
     F = [f1, f2, f3, f4]
 
     order = r.order
@@ -374,8 +387,8 @@ if __name__ == "__main__":
     B = [lbp(sig(r.zero_monom, i), f, i) for i, f in enumerate(F)]
     B = sorted(B, key=lambda g: order(Polyn(g).LM), reverse=True)
 
-    CP = [critical_pair(B[i], B[j], r)
-          for i in range(len(B)) for j in range(i + 1, len(B))]
+    CP = [cp_cuda(B[i], B[j], r)
+           for i in range(len(B)) for j in range(i + 1, len(B))]
     CP = sorted(CP, key=lambda cp: cp_key(cp, r), reverse=True)
 
     S = [cuda_s_poly(CP[i], B, r) for i in range(len(CP))]
@@ -389,10 +402,10 @@ if __name__ == "__main__":
         print("---------------------")
         print("GPU S-Poly v1: {}".format(i))
         print(S[i])
+        print("Equal? ", S[i] == S_orig[i])
         print("---------------------")
         print("GPU S-Poly v2: {}".format(i))
         print(S2[i])
+        print("Equal? ", S2[i] == S_orig[i])
+        print("Equal to S? ", S[i] == S2[i])
         print("---------------------")
-
-    assert(set(S) == set(S_orig))
-    assert(set(S2) == set(S_orig))
