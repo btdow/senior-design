@@ -93,6 +93,15 @@ for input_data in gb_input.inputs:
     sp_im = local_is_minimal(res_sp_gpu, R)
     sp_ir = local_is_minimal(res_sp_gpu, R)
 
+    start_sp2_gpu = time.time()
+    res_sp2_gpu = f5b_gpu.run(I, R, False, True, spoly2=True) # Only GPU Spoly2
+    end_sp_gpu = time.time()
+    sp2_gpu_runtime = end_sp_gpu - start_sp_gpu
+    sp2_match = res_f5b == res_sp2_gpu
+    sp2_ig = local_is_groebner(res_sp2_gpu, R)
+    sp2_im = local_is_minimal(res_sp2_gpu, R)
+    sp2_ir = local_is_minimal(res_sp2_gpu, R)
+    
     start_cpsp_gpu = time.time()
     res_cpsp_gpu = f5b_gpu.run(I, R, True, True)  # Both CP and SPoly
     end_cpsp_gpu = time.time()
@@ -102,18 +111,31 @@ for input_data in gb_input.inputs:
     cpsp_im = local_is_minimal(res_cpsp_gpu, R)
     cpsp_ir = local_is_reduced(res_cpsp_gpu, R)
 
+    start_cpsp2_gpu = time.time()
+    res_cpsp2_gpu = f5b_gpu.run(I, R, True, True, spoly2=True) # CP and Spoly2
+    end_cpsp2_gpu = time.time()
+    cpsp2_gpu_runtime = end_cpsp2_gpu - start_cpsp2_gpu
+    cpsp2_match = res_cpsp2_gpu == res_f5b
+    cpsp2_ig = local_is_groebner(res_cpsp2_gpu, R)
+    cpsp2_im = local_is_minimal(res_cpsp2_gpu, R)
+    cpsp2_ir = local_is_reduced(res_cpsp2_gpu, R)
+    
     output_data.append({
         'Input Name': fname,
         'SymPy F5B Time (sec)': f5b_runtime,
         'CP GPU Time (sec)': cp_gpu_runtime,
         'SP GPU Time (sec)': sp_gpu_runtime,
+        'SP2 GPU Time (sec)': sp2_gpu_runtime,
         'CP+SP GPU Time (sec)': cpsp_gpu_runtime,
+        'CP+SP2 GPU Time (sec)': cpsp2_gpu_runtime,
         'Number of Variables': len(var_list),
         'Number of Polynomials': len(I),
         'Max Degree': get_degree(sys_string),
         'CP Matching': cp_match,
         'SP Matching': sp_match,
-        'CPSP matching': cpsp_match
+        'SP2 Matching': sp2_match,
+        'CPSP matching': cpsp_match,
+        'CPSP2 matching': cpsp2_match
     })
     print('------------------------')
     print('Sympy F5B Time: ' + str(f5b_runtime))
@@ -137,6 +159,15 @@ for input_data in gb_input.inputs:
     print('Matching? ', sp_match)
     print('Matches CP? ', res_cp_gpu == res_sp_gpu)
     print('--')
+    print('GPU SP2 Time: ' + str(sp2_gpu_runtime))
+    print(res_sp2_gpu)
+    print("GB? ", sp2_ig)
+    print("Minimal? ", sp2_im)
+    print("Reduced? ", sp2_ir)
+    print("Matching? ", sp2_match)
+    print("Matches CP? ", res_sp2_gpu == res_cp_gpu)
+    print("Matches SP? ", res_sp2_gpu == res_sp_gpu)
+    print('--')
     print('GPU CP+SP Time: ' + str(cpsp_gpu_runtime))
     print(res_cpsp_gpu)
     print('GB?', cpsp_ig)
@@ -146,7 +177,15 @@ for input_data in gb_input.inputs:
     print('Matches CP? ', res_cpsp_gpu == res_cp_gpu)
     print('Matches SP? ', res_cpsp_gpu == res_sp_gpu)
     print('--')
-
+    print("GPU CP+SP2 Time: " + str(cpsp2_gpu_runtime))
+    print(res_cpsp2_gpu)
+    print("GB? ", cpsp2_ig)
+    print("Minimal? ", cpsp2_im)
+    print("Reduced? ", cpsp_ir)
+    print("Matching? ", cpsp2_match)
+    print("Matches CP? ", res_cpsp2_gpu == res_cp_gpu)
+    print("Matches SP? ", res_cpsp2_gpu == res_sp_gpu)
+    print("Matches CPSP? ", res_cpsp2_gpu == res_cpsp_gpu)
     print(fname + ' Completed!\n--------------------\n\n')
 
 

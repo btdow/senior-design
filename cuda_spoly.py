@@ -60,7 +60,7 @@ def cuda_s_poly2(cp, r):
     # Multiply step
     f = cp[2]
     g = cp[5]
-
+    
     fsig_idx = Sign(f)[1]
     gsig_idx = Sign(g)[1]
     fnum = Num(f)
@@ -73,6 +73,16 @@ def cuda_s_poly2(cp, r):
     um = np.array(um, dtype=np.uint32)
     vm = np.array(vm, dtype=np.uint32)
 
+    print("-------UM VM ---------")
+    print("UM: ", um)
+    print("VM: ", vm)
+    print("UC: ", uc)
+    print("VC: ", vc)
+    print("---------------------")
+    input("press enter to continue")
+
+
+    
     uv_coeffs = [uc, vc]
     uv_coeffs = np.array(uv_coeffs, dtype=np.int64)
 
@@ -83,25 +93,33 @@ def cuda_s_poly2(cp, r):
     gsm = np.array(gsm, dtype=np.uint32)
 
     fc = [f for f in Polyn(f).coeffs()]
-    fc = np.array(fc, dtype=np.int32)
+    fc = np.array(fc, dtype=np.int64)
     gc = [g for g in Polyn(g).coeffs()]
-    gc = np.array(gc, dtype=np.int32)
+    gc = np.array(gc, dtype=np.int64)
 
     fsm_dest = np.zeros_like(fsm)
     gsm_dest = np.zeros_like(gsm)
     fc_dest = np.zeros_like(fc)
     gc_dest = np.zeros_like(gc)
 
+    total_monoms_sigs = len(Polyn(f).terms()) + len(Polyn(g).terms()) + 2
+    
     # prepare threads
     threadsperblock = (32, 32)
-    blockspergrid_x = ceil((fsm_dest.size + gsm_dest.size) / threadsperblock[0])
-    blockspergrid_y = ceil((fsm_dest.size + gsm_dest.size) / threadsperblock[1])
+    blockspergrid_x = (total_monoms_sigs + (threadsperblock[0] - 1)) // threadsperblock[0]
+    blockspergrid_y = (um.size + (threadsperblock[1] - 1)) // threadsperblock[1]
     blockspergrid = (blockspergrid_x, blockspergrid_y)
-
     # launch kernel
-    spoly_mul_numba_kernel[blockspergrid, threadsperblock](fsm_dest, gsm_dest, fc_dest, gc_dest,
-                                                           fsm, gsm, fc, gc, um, vm, uv_coeffs)
+    spoly_mul_numba_kernel[blockspergrid,
+                           threadsperblock](fsm_dest, gsm_dest, fc_dest,
+                                            gc_dest, fsm, gsm, fc, gc, um, vm,
+                                            uv_coeffs)
 
+    print("------FC GC-----------")
+    print("FC: ", fc_dest)
+    print("GC: ", gc_dest)
+    print("---------------------")
+    input("please press a key")
     # Sub Step
     # Get all monomials in both umf, vmg, sort by ordering, reindex
     # f, g in a 2d coefficient array, send to other kernel
@@ -138,6 +156,7 @@ def cuda_s_poly2(cp, r):
     lb_spoly = spoly_numba_io(spair_info, r)
 
     return lb_spoly
+
 
 def spoly_numba_io(spair_info, r):
     """
@@ -197,22 +216,20 @@ def spoly_mul_numba_kernel(fsm_dest, gsm_dest, fc_dest, gc_dest,
     and fc, gc reindexed into a 2d array for 
     sub step kernel
     """
-    j, i = cuda.grid(2)
-    if j < fsm_dest.shape[0] and i < fsm_dest.shape[1]:
-        fsm_dest[j, i] = um[i] + fsm[j, i]
+    i, j = cuda.grid(2)
+    if j < fsm_dest.shape[0]:
+        if i < um.size:
+            fsm_dest[j, i] = um[i] + fsm[j, i]
 
-    cuda.syncthreads()
-
-    if j < gsm_dest.shape[0] and i < gsm_dest.shape[1]:
-        gsm_dest[j, i] = vm[i] + gsm[j, i]
-
-    cuda.syncthreads()
+    if j < gsm_dest.shape[0]:
+        if i < vm.size:
+            gsm_dest[j, i] = vm[i] + gsm[j, i]
 
     if i < fc_dest.size:
-        fc_dest[i] = uv_coeffs[0] * fc[i]
+        fc_dest[i] = (uv_coeffs[0] * fc[i]) % 65521
 
     if j < gc_dest.size:
-        gc_dest[i] = uv_coeffs[1] * gc[i]
+        gc_dest[i] = (uv_coeffs[1] * gc[i]) % 65521
 
 
 def symbolic_preprocessing(Ld, B, r):

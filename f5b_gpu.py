@@ -24,7 +24,11 @@ def _f5b_gpu(F, r, useGPUCP, useGPUSPoly, spoly2=False):
         c_p = critical_pair
     if useGPUSPoly:
         s_p = cuda_s_poly
-        sp_needs_ring = True
+        sp_needs_B = True
+        if spoly2:
+            s_p = cuda_s_poly2
+            sp_needs_ring = True
+            sp_needs_B = False
     else:
         s_p = s_poly
 
@@ -82,13 +86,12 @@ def _f5b_gpu(F, r, useGPUCP, useGPUSPoly, spoly2=False):
         if is_rewritable_or_comparable(cp[3], Num(cp[5]), B):
             continue
 
-        if sp_needs_ring:
-            s = s_p(cp, B, r)
-        else:
-            s = s_p(cp)
-
         if sp_needs_B:
             s = s_p(cp, B, r)
+        elif sp_needs_ring:
+            s = s_p(cp, r)
+        else:
+            s = s_p(cp)
 
         p = f5_reduce(s, B)
 
@@ -143,7 +146,7 @@ def _f5b_gpu(F, r, useGPUCP, useGPUSPoly, spoly2=False):
     return sorted(H, key=lambda f: order(f.LM), reverse=True)
 
 
-def run(I, R, useGPUCP, useGPUSPoly):
+def run(I, R, useGPUCP, useGPUSPoly, spoly2=False):
     return _f5b_gpu(I, R, useGPUCP, useGPUSPoly)
 
 
