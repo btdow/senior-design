@@ -102,7 +102,7 @@ for input_data in gb_input.inputs:
     res_sp_gpu = f5b_gpu.run(I, R, False, True)  # Only GPU Spoly
     end_sp_gpu = time.time()
     sp_gpu_runtime = end_sp_gpu - start_sp_gpu
-    sp_match = res_f5b == res_sp_gpu
+    sp_match = set(res_f5b) == set(res_sp_gpu)
     sp_ig = local_is_groebner(res_sp_gpu, R)
     sp_im = local_is_minimal(res_sp_gpu, R)
     sp_ir = local_is_minimal(res_sp_gpu, R)
@@ -112,7 +112,7 @@ for input_data in gb_input.inputs:
     print('Minimal?', sp_im)
     print('Reduced?', sp_ir)
     print('Matching? ', sp_match)
-    print('Matches CP? ', res_cp_gpu == res_sp_gpu)
+    print('Matches CP? ', res_cp_gpu == res_sp_gpu
     print('--')
 
     start_sp2_gpu = time.time()
