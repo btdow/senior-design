@@ -112,7 +112,7 @@ for input_data in gb_input.inputs:
     print('Minimal?', sp_im)
     print('Reduced?', sp_ir)
     print('Matching? ', sp_match)
-    print('Matches CP? ', res_cp_gpu == res_sp_gpu
+    print('Matches CP? ', res_cp_gpu == res_sp_gpu)
     print('--')
 
     start_sp2_gpu = time.time()
