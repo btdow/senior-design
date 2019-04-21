@@ -86,7 +86,7 @@ for input_data in gb_input.inputs:
     res_cp_gpu = f5b_gpu.run(I, R, True, False)  # Only GPU CP
     end_cp_gpu = time.time()
     cp_gpu_runtime = end_cp_gpu - start_cp_gpu
-    cp_match = res_f5b == res_cp_gpu
+    cp_match = set(res_f5b) == set(res_cp_gpu)
     cp_ig = local_is_groebner(res_cp_gpu, R)
     cp_im = local_is_minimal(res_cp_gpu, R)
     cp_ir = local_is_reduced(res_cp_gpu, R)
@@ -119,7 +119,7 @@ for input_data in gb_input.inputs:
     res_sp2_gpu = f5b_gpu.run(I, R, False, True, spoly2=True) # Only GPU Spoly2
     end_sp_gpu = time.time()
     sp2_gpu_runtime = end_sp_gpu - start_sp_gpu
-    sp2_match = res_f5b == res_sp2_gpu
+    sp2_match = set(res_f5b) == set(res_sp2_gpu)
     sp2_ig = local_is_groebner(res_sp2_gpu, R)
     sp2_im = local_is_minimal(res_sp2_gpu, R)
     sp2_ir = local_is_minimal(res_sp2_gpu, R)
@@ -137,7 +137,7 @@ for input_data in gb_input.inputs:
     res_cpsp_gpu = f5b_gpu.run(I, R, True, True)  # Both CP and SPoly
     end_cpsp_gpu = time.time()
     cpsp_gpu_runtime = end_cpsp_gpu - start_cpsp_gpu
-    cpsp_match = res_cpsp_gpu == res_f5b
+    cpsp_match = set(res_cpsp_gpu) == set(res_f5b)
     cpsp_ig = local_is_groebner(res_cpsp_gpu, R)
     cpsp_im = local_is_minimal(res_cpsp_gpu, R)
     cpsp_ir = local_is_reduced(res_cpsp_gpu, R)
@@ -155,7 +155,7 @@ for input_data in gb_input.inputs:
     res_cpsp2_gpu = f5b_gpu.run(I, R, True, True, spoly2=True) # CP and Spoly2
     end_cpsp2_gpu = time.time()
     cpsp2_gpu_runtime = end_cpsp2_gpu - start_cpsp2_gpu
-    cpsp2_match = res_cpsp2_gpu == res_f5b
+    cpsp2_match = set(res_cpsp2_gpu) == set(res_f5b)
     cpsp2_ig = local_is_groebner(res_cpsp2_gpu, R)
     cpsp2_im = local_is_minimal(res_cpsp2_gpu, R)
     cpsp2_ir = local_is_reduced(res_cpsp2_gpu, R)
