@@ -388,12 +388,11 @@ if __name__ == "__main__":
     B = [lbp(sig(r.zero_monom, i), f, i) for i, f in enumerate(F)]
     B = sorted(B, key=lambda g: order(Polyn(g).LM), reverse=True)
 
-    CP = [cp_cuda(B[i], B[j], r)
+    CP = [critical_pair(B[i], B[j], r)
            for i in range(len(B)) for j in range(i + 1, len(B))]
     CP = sorted(CP, key=lambda cp: cp_key(cp, r), reverse=True)
 
     S = [cuda_s_poly(CP[i], B, r) for i in range(len(CP))]
-    S2 = [cuda_s_poly2(CP[i], r) for i in range(len(CP))]
     S_orig = [s_poly(CP[i]) for i in range(len(CP))]
 
     print("---------------------")
@@ -404,9 +403,4 @@ if __name__ == "__main__":
         print("GPU S-Poly v1: {}".format(i))
         print(S[i])
         print("Equal? ", S[i] == S_orig[i])
-        print("---------------------")
-        print("GPU S-Poly v2: {}".format(i))
-        print(S2[i])
-        print("Equal? ", S2[i] == S_orig[i])
-        print("Equal to S? ", S[i] == S2[i])
         print("---------------------")
