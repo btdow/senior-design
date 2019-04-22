@@ -242,7 +242,6 @@ def parse_cuda_cp_to_sympy(cuda_cp, pair, ring):
 if __name__ == "__main__":
     print("GPU Critical Pairs Test")
 
-    """
     print("Cyclic Affine 4")
     r, a, b, c, d = ring(symbols="a, b, c, d", domain=GF(65521), order="grevlex")
     f1 = a + b + c + d
@@ -250,8 +249,8 @@ if __name__ == "__main__":
     f3 = a*b*c + a*b*d + a*c*d + b*c*d
     f4 = a*b*c*d - 1
     F = [f1, f2, f3, f4]
-    """
 
+    """
     print("Katsura Affine 4")
     r, x1, x2, x3, x4 = ring(symbols='x1, x2, x3, x4', domain=GF(65521), order='grevlex')
     f1 = x1 + 2*x2 + 2*x3 + 2*x4 - 1
@@ -259,6 +258,7 @@ if __name__ == "__main__":
     f3 = 2*x1*x2 + 2*x2*x3 + 2*x3*x4 - x2
     f4 = x2**2 + 2*x1*x3 + 2*x2*x4 - x3
     F = [f1, f2, f3, f4]
+    """
 
     B = [lbp(sig(r.zero_monom, i), f, i) for i, f in enumerate(F)]
     CP = [critical_pair(B[i], B[j], r) for i in range(len(B)) for j in range(i + 1, len(B))]
