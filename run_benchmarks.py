@@ -115,6 +115,7 @@ for input_data in gb_input.inputs:
     print('Matches CP? ', res_cp_gpu == res_sp_gpu)
     print('--')
 
+    """
     start_sp2_gpu = time.time()
     res_sp2_gpu = f5b_gpu.run(I, R, False, True, spoly2=True) # Only GPU Spoly2
     end_sp_gpu = time.time()
@@ -132,7 +133,8 @@ for input_data in gb_input.inputs:
     print("Matches CP? ", res_sp2_gpu == res_cp_gpu)
     print("Matches SP? ", res_sp2_gpu == res_sp_gpu)
     print('--')
-    
+    """
+
     start_cpsp_gpu = time.time()
     res_cpsp_gpu = f5b_gpu.run(I, R, True, True)  # Both CP and SPoly
     end_cpsp_gpu = time.time()
@@ -151,6 +153,7 @@ for input_data in gb_input.inputs:
     print('Matches SP? ', res_cpsp_gpu == res_sp_gpu)
     print('--')
 
+    """
     start_cpsp2_gpu = time.time()
     res_cpsp2_gpu = f5b_gpu.run(I, R, True, True, spoly2=True) # CP and Spoly2
     end_cpsp2_gpu = time.time()
@@ -168,15 +171,14 @@ for input_data in gb_input.inputs:
     print("Matches CP? ", res_cpsp2_gpu == res_cp_gpu)
     print("Matches SP? ", res_cpsp2_gpu == res_sp_gpu)
     print("Matches CPSP? ", res_cpsp2_gpu == res_cpsp_gpu)
-    
+    """
+
     output_data.append({
         'Input Name': fname,
         'SymPy F5B Time (sec)': f5b_runtime,
         'CP GPU Time (sec)': cp_gpu_runtime,
         'SP GPU Time (sec)': sp_gpu_runtime,
-        'SP2 GPU Time (sec)': sp2_gpu_runtime,
         'CP+SP GPU Time (sec)': cpsp_gpu_runtime,
-        'CP+SP2 GPU Time (sec)': cpsp2_gpu_runtime,
         'Number of Variables': len(var_list),
         'Number of Polynomials': len(I),
         'Max Degree': get_degree(sys_string)
