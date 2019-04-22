@@ -179,12 +179,7 @@ for input_data in gb_input.inputs:
         'CP+SP2 GPU Time (sec)': cpsp2_gpu_runtime,
         'Number of Variables': len(var_list),
         'Number of Polynomials': len(I),
-        'Max Degree': get_degree(sys_string),
-        'CP Matching': cp_match,
-        'SP Matching': sp_match,
-        'SP2 Matching': sp2_match,
-        'CPSP matching': cpsp_match,
-        'CPSP2 matching': cpsp2_match
+        'Max Degree': get_degree(sys_string)
     })
 
     print(fname + ' Completed!\n--------------------\n\n')

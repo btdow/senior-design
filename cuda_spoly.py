@@ -73,16 +73,6 @@ def cuda_s_poly2(cp, r):
     um = np.array(um, dtype=np.uint32)
     vm = np.array(vm, dtype=np.uint32)
 
-    print("-------UM VM ---------")
-    print("UM: ", um)
-    print("VM: ", vm)
-    print("UC: ", uc)
-    print("VC: ", vc)
-    print("---------------------")
-    input("press enter to continue")
-
-
-    
     uv_coeffs = [uc, vc]
     uv_coeffs = np.array(uv_coeffs, dtype=np.int64)
 
@@ -115,12 +105,6 @@ def cuda_s_poly2(cp, r):
                                             gc_dest, fsm, gsm, fc, gc, um, vm,
                                             uv_coeffs)
 
-    print("------FC GC-----------")
-    print("FC: ", fc_dest)
-    print("GC: ", gc_dest)
-    print("---------------------")
-    input("please press a key")
-    # Sub Step
     # Get all monomials in both umf, vmg, sort by ordering, reindex
     # f, g in a 2d coefficient array, send to other kernel
     if sum(sum(fsm_dest)) == 0:

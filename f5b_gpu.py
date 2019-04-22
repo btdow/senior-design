@@ -32,10 +32,6 @@ def _f5b_gpu(F, r, useGPUCP, useGPUSPoly, spoly2=False):
     else:
         s_p = s_poly
 
-    if spoly2:
-        s_p = cuda_s_poly2
-        sp_needs_B = True
-
     domain, orig = r.domain, None
 
     if not domain.is_Field or not domain.has_assoc_Field:
@@ -147,7 +143,7 @@ def _f5b_gpu(F, r, useGPUCP, useGPUSPoly, spoly2=False):
 
 
 def run(I, R, useGPUCP, useGPUSPoly, spoly2=False):
-    return _f5b_gpu(I, R, useGPUCP, useGPUSPoly)
+    return _f5b_gpu(I, R, useGPUCP, useGPUSPoly, spoly2)
 
 
 #############
